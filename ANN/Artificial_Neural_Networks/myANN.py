@@ -2,8 +2,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import keras
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.models import Sequential
+from keras.layers import Dense
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 
 # ----Begin Data Preprocessing
@@ -44,7 +48,29 @@ X_test = sc.transform(X_test)
 # ----End Data Preprocessing
 
 # ----Begin ANN Build
+# init the ANN
+ANN = Sequential() 
+# add input layer and first hidden layer
+# create a dense layer CMD + i to see documentation
+# output_dim = number of nodes in firts hidden layer use tip
+#        number of input layer nodes + output layer nodes / 2 to get average
+#        so ther are 11 in and 1 out 11 + 1 = 12 /2 = 6  
+ANN.add(Dense(output_dim=6,init='uniform',activation='relu',input_dim=11))
 
+# add a second hidden layer 
+ANN.add(Dense(output_dim=6,init='uniform',activation='relu'))
+
+# add output layer
+# binary output will only need a single node
+ANN.add(Dense(output_dim=1,init='uniform',activation='sigmoid'))
+
+# compile the ANN
+# adam = Stocastic Gradient Decent Model algorithm
+ANN.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# fitting ANN to the training set
+# batch size = number of steps to bacth into an update 
+ANN.fit(X_train, y_train, batch_size=10, epochs=100)
 
 # ----End ANN 
 
@@ -54,8 +80,68 @@ X_test = sc.transform(X_test)
 # Create your classifier here
 
 # Predicting the Test set results
-y_pred = classifier.predict(X_test)
+y_pred = ANN.predict(X_test)
+
+# derive true or false based on probability predicted
+y_pred = (y_pred > 0.5)
+
 
 # Making the Confusion Matrix
 from sklearn.metrics import confusion_matrix
 cm = confusion_matrix(y_test, y_pred)
+
+""" 
+Predict if a customer will leave the bank with the following info
+-----------------------------------------------------------------
+Geography: France
+Credit Scroe: 600
+Gender: Male
+Age:40
+Tenure: 3
+Balance: 60000
+Number of Products: 2
+Credit Card: Yes
+Active: Yes
+Salary: 50000
+"""
+
+new_record = np.array([[0.0,0.0,600.0,1.0,40.0,3.0,60000.0,2.0,1.0,1.0,50000.0]])
+new_rec = sc.transform(new_record)
+
+new_prediction = ANN.predict(new_rec)
+
+print("New Customer will exit: {}".format(new_prediction > 0.5))
+
+# Evaluate, Imporve, Tune using KFold cross validation
+
+def build_classifier():
+    # Buld ANN Model like above
+    classifier = Sequential() 
+    classifier.add(Dense(output_dim=6,init='uniform',activation='relu',input_dim=11))
+    classifier.add(Dense(output_dim=6,init='uniform',activation='relu'))
+    classifier.add(Dense(output_dim=1,init='uniform',activation='sigmoid'))
+    classifier.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return classifier
+
+classifier = KerasClassifier(build_fn=build_classifier, batch_size=10, epochs=100)
+accuracies = cross_val_score(estimator=classifier, X = X_train, y = y_train, cv=10, n_jobs=-1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+ANN.save("model", overwrite=True, include_optimizer=True)
+
+
+
+
+
+
